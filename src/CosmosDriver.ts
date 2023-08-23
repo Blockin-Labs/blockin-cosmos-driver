@@ -1,40 +1,17 @@
 import { verifyADR36Amino } from '@keplr-wallet/cosmos';
-import { SupportedChain, getChainForAddress } from 'bitbadgesjs-utils';
+import axiosApi from 'axios';
+import { Balance, UintRange, convertBalance, convertUintRange } from 'bitbadgesjs-proto';
+import { BigIntify, GetBadgeBalanceByAddressRoute, GetBadgeBalanceByAddressRouteSuccessResponse, NumberType, OffChainBalancesMap, SupportedChain, convertToCosmosAddress, getBalancesForIds, getChainForAddress } from 'bitbadgesjs-utils';
+import { CreateAssetParams, IChainDriver, UniversalTxn } from 'blockin';
+import { Asset } from 'blockin/dist/types/verify.types';
 import { Buffer } from 'buffer';
-import { CreateAssetParams, CreateTransferAssetParams, IChainDriver, UniversalTxn } from 'blockin';
 
-type CreateContractOptInParams = {
-  from: string,
-  appIndex: number,
-  extras?: any
-}
-
-type CreateContractNoOpParams = {
-  from: string,
-  appIndex: number,
-  appArgs: Uint8Array[] | undefined,
-  accounts: string[] | undefined,
-  foreignAssets: number[] | undefined
-}
-
-/**
-* Universal type for any chain's opt-in to asset transaction parameters. 
-*/
-type CreateOptInAssetParams = {
-  to: string,
-  from?: string,
-  assetIndex: number,
-  extras?: any
-}
-
-type CreatePaymentParams = {
-  to: string,
-  from?: string,
-  amount?: number | bigint,
-  note?: string,
-  extras?: any
-}
-
+export const axios = axiosApi.create({
+  withCredentials: true,
+  headers: {
+    "Content-type": "application/json",
+  },
+});
 
 /**
  * Cosmos implementation of the IChainDriver interface.
@@ -44,7 +21,7 @@ type CreatePaymentParams = {
  * Note that the Blockin library also has many convenient, chain-generic functions that implement
  * this logic for creating / verifying challenges. Before using, you will have to setChainDriver(new CosmosDriver(.....)) first.
  */
-export default class CosmosDriver implements IChainDriver {
+export default class CosmosDriver implements IChainDriver<NumberType> {
   chain;
   constructor(chain: string) {
     this.chain = chain;
@@ -123,8 +100,103 @@ export default class CosmosDriver implements IChainDriver {
     }
   }
 
-  async verifyOwnershipOfAssets(address: string, resources: string[], assetMinimumBalancesRequiredMap?: any, defaultMinimum?: number) {
-    return; //TODO:
+  async verifyAssets(address: string, resources: string[], _assets: Asset<NumberType>[], balancesSnapshot?: object): Promise<any> {
+
+    let ethAssets: Asset<NumberType>[] = []
+    let bitbadgesAssets: Asset<NumberType>[] = []
+    if (resources) {
+
+    }
+
+    if (_assets) {
+      bitbadgesAssets = _assets.filter((elem) => elem.chain === "BitBadges")
+    }
+
+    if (ethAssets.length === 0 && bitbadgesAssets.length === 0) return //No assets to verify
+
+    if (bitbadgesAssets.length > 0) {
+      for (const asset of bitbadgesAssets) {
+        let docBalances: Balance<bigint>[] = []
+        if (!balancesSnapshot) {
+          const balancesRes: GetBadgeBalanceByAddressRouteSuccessResponse<string> = await axios.post(
+            "https://api.bitbadges.io" +
+            GetBadgeBalanceByAddressRoute(asset.collectionId, convertToCosmosAddress(address),),
+            {},
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "x-api-key": process.env.BITBADGES_API_KEY,
+              },
+            },
+          ).then((res) => {
+            return res.data
+          })
+
+          docBalances = balancesRes.balance.balances.map((x) => convertBalance(x, BigIntify))
+        } else {
+          const cosmosAddress = convertToCosmosAddress(address)
+          const balancesSnapshotObj = balancesSnapshot as OffChainBalancesMap<bigint>
+          docBalances = balancesSnapshotObj[cosmosAddress] ? balancesSnapshotObj[cosmosAddress].map(x => convertBalance(x, BigIntify)) : []
+        }
+
+        if (
+          !asset.assetIds.every(
+            (x) => typeof x === "object" && BigInt(x.start) >= 0 && BigInt(x.end) >= 0,
+          )
+        ) {
+          throw new Error(`All assetIds must be UintRanges for BitBadges compatibility`)
+        }
+
+        if (
+          asset.ownershipTimes &&
+          !asset.ownershipTimes.every(
+            (x) => typeof x === "object" && BigInt(x.start) >= 0 && BigInt(x.end) >= 0,
+          )
+        ) {
+          throw new Error(`All ownershipTimes must be UintRanges for BitBadges compatibility`)
+        }
+
+        if (
+          asset.mustOwnAmounts && !(typeof asset.mustOwnAmounts === "object" && BigInt(asset.mustOwnAmounts.start) >= 0 && BigInt(asset.mustOwnAmounts.end) >= 0)
+        ) {
+          throw new Error(`mustOwnAmount must be UintRange for BitBadges compatibility`)
+        }
+
+        if (!asset.ownershipTimes) {
+          asset.ownershipTimes = [{ start: BigInt(Date.now()), end: BigInt(Date.now()) }]
+        }
+
+        const balances = getBalancesForIds(
+          asset.assetIds.map((x) => convertUintRange(x as UintRange<bigint>, BigIntify)),
+          asset.ownershipTimes.map((x) => convertUintRange(x, BigIntify)),
+          docBalances,
+        )
+
+        const mustOwnAmount = asset.mustOwnAmounts
+        for (const balance of balances) {
+          if (BigInt(balance.amount) < BigInt(mustOwnAmount.start)) {
+            throw new Error(
+              `Address ${address} does not own enough of IDs ${balance.badgeIds
+                .map((x) => `${x.start}-${x.end}`)
+                .join(",")} from collection ${asset.collectionId
+              } to meet minimum balance requirement of ${mustOwnAmount.start}`,
+            )
+          }
+
+          if (BigInt(balance.amount) > BigInt(mustOwnAmount.end)) {
+            throw new Error(
+              `Address ${address} owns too much of IDs ${balance.badgeIds
+                .map((x) => `${x.start}-${x.end}`)
+                .join(",")} from collection ${asset.collectionId
+              } to meet maximum balance requirement of ${mustOwnAmount.end}`,
+            )
+          }
+
+        }
+      }
+    }
+
+
   }
   /**
    * Currently just a boilerplate
