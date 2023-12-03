@@ -1,6 +1,6 @@
 {
   "name": "blockin-cosmos-driver",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "",
   "type": "module",
   "main": "dist/CosmosDriver.js",
@@ -15,7 +15,7 @@
     "@keplr-wallet/cosmos": "^0.12.20",
     "algosdk": "^1.17.0",
     "bitbadgesjs-utils": "^1.1.150",
-    "blockin": "^1.2.35",
+    "blockin": "^1.2.65",
     "buffer": "^6.0.3",
     "tweetnacl": "^1.0.3"
   },

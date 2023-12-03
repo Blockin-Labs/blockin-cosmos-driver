@@ -2,7 +2,7 @@ import { verifyADR36Amino } from '@keplr-wallet/cosmos';
 import axiosApi from 'axios';
 import { Balance, UintRange, convertBalance, convertUintRange } from 'bitbadgesjs-proto';
 import { BigIntify, GetBadgeBalanceByAddressRoute, GetBadgeBalanceByAddressRouteSuccessResponse, NumberType, OffChainBalancesMap, SupportedChain, convertToCosmosAddress, getBalancesForIds, getChainForAddress } from 'bitbadgesjs-utils';
-import { CreateAssetParams, IChainDriver, UniversalTxn } from 'blockin';
+import { CreateAssetParams, IChainDriver, UniversalTxn, constructChallengeObjectFromString } from 'blockin';
 import { Asset } from 'blockin/dist/types/verify.types';
 import { Buffer } from 'buffer';
 
@@ -39,14 +39,6 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
     throw 'Not implemented';
     return;
   }
-  async parseChallengeStringFromBytesToSign(txnBytes: Uint8Array) {
-    const txnString = new TextDecoder().decode(txnBytes);
-    const txnString2 = Buffer.from(
-      txnString.substring(2),
-      'hex'
-    ).toString();
-    return txnString2;
-  }
   async lookupTransactionById(txnId: string) {
     throw 'Not implemented';
     return;
@@ -77,12 +69,25 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
     throw 'Not implemented';
     return new Uint8Array(0);
   }
-  async verifySignature(originalChallengeToUint8Array: Uint8Array, signedChallenge: Uint8Array, originalAddress: string): Promise<void> {
-    const originalString = await this.parseChallengeStringFromBytesToSign(
-      originalChallengeToUint8Array
-    );
-    const pubKey = signedChallenge.slice(0, 33);
-    const signature = signedChallenge.slice(33);
+  async verifySignature(message: string, signature: string): Promise<void> {
+
+    const originalString = message;
+    const originalAddress = constructChallengeObjectFromString(message, JSON.stringify).address;
+    const originalPubKeyValue = signature.split(':')[0];
+    const originalSignature = signature.split(':')[1];
+
+    const signatureBuffer = Buffer.from(originalSignature, 'base64');
+    const uint8Signature = new Uint8Array(signatureBuffer); // Convert the buffer to an Uint8Array
+    const pubKeyValueBuffer = Buffer.from(originalPubKeyValue, 'base64'); // Decode the base64 encoded value
+    const pubKeyUint8Array = new Uint8Array(pubKeyValueBuffer); // Convert the buffer to an Uint8Array
+
+    //concat pubKey and signature uint8
+    const signedChallenge = new Uint8Array();
+    signedChallenge.set(pubKeyUint8Array);
+    signedChallenge.set(uint8Signature, pubKeyUint8Array.length);
+
+    const pubKeyBytes = signedChallenge.slice(0, 33);
+    const signatureBytes = signedChallenge.slice(33);
 
     const prefix = 'cosmos'; // change prefix for other chains...
 
@@ -90,9 +95,9 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
       prefix,
       originalAddress,
       originalString,
-      pubKey,
-      signature,
-      'ethsecp256k1'
+      pubKeyBytes,
+      signatureBytes,
+      'secp256k1'
     );
 
     if (!isRecovered) {
