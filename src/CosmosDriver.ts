@@ -178,31 +178,49 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
         )
 
         const mustOwnAmount = asset.mustOwnAmounts
+        const mustSatisfyAll = asset.mustSatisfyForAllAssets;
+        let satisfiedForOne = false;
         for (const balance of balances) {
-          if (BigInt(balance.amount) < BigInt(mustOwnAmount.start)) {
-            throw new Error(
-              `Address ${address} does not own enough of IDs ${balance.badgeIds
-                .map((x) => `${x.start}-${x.end}`)
-                .join(",")} from collection ${asset.collectionId
-              } to meet minimum balance requirement of ${mustOwnAmount.start}`,
-            )
+          if (balance.amount < BigInt(mustOwnAmount.start)) {
+            if (mustSatisfyAll) {
+              throw new Error(
+                `Address ${address} does not own enough of IDs ${balance.badgeIds
+                  .map((x) => `${x.start}-${x.end}`)
+                  .join(",")} from collection ${asset.collectionId
+                } to meet minimum balance requirement of ${mustOwnAmount.start}`,
+              )
+            } else {
+              continue
+            }
           }
 
-          if (BigInt(balance.amount) > BigInt(mustOwnAmount.end)) {
-            throw new Error(
-              `Address ${address} owns too much of IDs ${balance.badgeIds
-                .map((x) => `${x.start}-${x.end}`)
-                .join(",")} from collection ${asset.collectionId
-              } to meet maximum balance requirement of ${mustOwnAmount.end}`,
-            )
+          if (balance.amount > BigInt(mustOwnAmount.end)) {
+            if (mustSatisfyAll) {
+              throw new Error(
+                `Address ${address} owns too much of IDs ${balance.badgeIds
+                  .map((x) => `${x.start}-${x.end}`)
+                  .join(",")} from collection ${asset.collectionId
+                } to meet maximum balance requirement of ${mustOwnAmount.end}`,
+              )
+            } else {
+              continue
+            }
           }
 
+          satisfiedForOne = true;
+        }
+
+        if (mustSatisfyAll) {
+          //we made it through all balances and didn't throw an error so we are good
+        } else if (!satisfiedForOne) {
+          throw new Error(
+            `Address ${address} did not meet the ownership requirements for any of the assets.`,
+          )
         }
       }
     }
-
-
   }
+
   /**
    * Currently just a boilerplate
    */
