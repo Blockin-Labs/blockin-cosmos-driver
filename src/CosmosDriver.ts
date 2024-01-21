@@ -1,7 +1,7 @@
 import { verifyADR36Amino } from '@keplr-wallet/cosmos';
 import axiosApi from 'axios';
 import { Balance, UintRange, convertBalance, convertUintRange } from 'bitbadgesjs-proto';
-import { BigIntify, GetBadgeBalanceByAddressRoute, GetBadgeBalanceByAddressRouteSuccessResponse, NumberType, OffChainBalancesMap, SupportedChain, convertToCosmosAddress, getBalancesForIds, getChainForAddress } from 'bitbadgesjs-utils';
+import { BigIntify, GetBadgeBalanceByAddressRoute, GetBadgeBalanceByAddressRouteSuccessResponse, NumberType, OffChainBalancesMap, Stringify, SupportedChain, convertToCosmosAddress, getBalancesForIds, getChainForAddress } from 'bitbadgesjs-utils';
 import { CreateAssetParams, IChainDriver, constructChallengeObjectFromString } from 'blockin';
 import { AndGroup, AssetConditionGroup, OrGroup, OwnershipRequirements } from 'blockin/dist/types/verify.types';
 import { Buffer } from 'buffer';
@@ -39,7 +39,7 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
   async verifySignature(message: string, signature: string): Promise<void> {
 
     const originalString = message;
-    const originalAddress = constructChallengeObjectFromString(message, JSON.stringify).address;
+    const originalAddress = constructChallengeObjectFromString(message, Stringify).address;
     const originalPubKeyValue = signature.split(':')[0];
     const originalSignature = signature.split(':')[1];
 
@@ -47,9 +47,9 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
     const uint8Signature = new Uint8Array(signatureBuffer); // Convert the buffer to an Uint8Array
     const pubKeyValueBuffer = Buffer.from(originalPubKeyValue, 'base64'); // Decode the base64 encoded value
     const pubKeyUint8Array = new Uint8Array(pubKeyValueBuffer); // Convert the buffer to an Uint8Array
-
-    //concat pubKey and signature uint8
-    const signedChallenge = new Uint8Array();
+    
+    //concat the two Uint8Arrays
+    const signedChallenge = new Uint8Array(pubKeyUint8Array.length + uint8Signature.length);
     signedChallenge.set(pubKeyUint8Array);
     signedChallenge.set(uint8Signature, pubKeyUint8Array.length);
 
