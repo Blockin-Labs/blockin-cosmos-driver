@@ -36,19 +36,21 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
     throw 'Not implemented';
     return new Uint8Array(0);
   }
-  async verifySignature(message: string, signature: string): Promise<void> {
+  async verifySignature(message: string, signature: string, publicKey?: string) {
+    if (!publicKey) {
+      throw `Public key is required for Cosmos verification`;
+    }
 
     const originalString = message;
     const originalAddress = constructChallengeObjectFromString(message, Stringify).address;
-    const originalPubKeyValue = signature.split(':')[0];
-    const originalSignature = signature.split(':')[1];
 
-    const signatureBuffer = Buffer.from(originalSignature, 'base64');
+    const signatureBuffer = Buffer.from(signature, 'base64');
     const uint8Signature = new Uint8Array(signatureBuffer); // Convert the buffer to an Uint8Array
-    const pubKeyValueBuffer = Buffer.from(originalPubKeyValue, 'base64'); // Decode the base64 encoded value
+
+    const pubKeyValueBuffer = Buffer.from(publicKey, 'base64'); // Decode the base64 encoded value
     const pubKeyUint8Array = new Uint8Array(pubKeyValueBuffer); // Convert the buffer to an Uint8Array
-    
-    //concat the two Uint8Arrays
+
+    //concat the two Uint8Arrays //This is probably legacy code and can be removed
     const signedChallenge = new Uint8Array(pubKeyUint8Array.length + uint8Signature.length);
     signedChallenge.set(pubKeyUint8Array);
     signedChallenge.set(uint8Signature, pubKeyUint8Array.length);
@@ -73,6 +75,8 @@ export default class CosmosDriver implements IChainDriver<NumberType> {
   }
 
   async verifyAssets(address: string, resources: string[], _assets: AssetConditionGroup<NumberType> | undefined, balancesSnapshot?: object): Promise<any> {
+    if (!_assets) return //if no asset requirements, we do not need to verify anything
+
     const andItem: AndGroup<bigint> = _assets as AndGroup<bigint>
     const orItem: OrGroup<bigint> = _assets as OrGroup<bigint>
     const normalItem: OwnershipRequirements<bigint> = _assets as OwnershipRequirements<bigint>
