@@ -1,7 +1,7 @@
 import { verifyADR36Amino } from '@keplr-wallet/cosmos';
 import axiosApi from 'axios';
-import { Balance, UintRange, convertBalance, convertUintRange } from 'bitbadgesjs-proto';
-import { BigIntify, GetBadgeBalanceByAddressRoute, GetBadgeBalanceByAddressRouteSuccessResponse, NumberType, OffChainBalancesMap, Stringify, SupportedChain, convertToCosmosAddress, getBalancesForIds, getChainForAddress } from 'bitbadgesjs-utils';
+import { Balance, UintRange, convertBalance, convertUintRange } from 'bitbadgesjs-sdk';
+import { BigIntify, GetBadgeBalanceByAddressRoute, GetBadgeBalanceByAddressRouteSuccessResponse, NumberType, OffChainBalancesMap, Stringify, SupportedChain, convertToCosmosAddress, getBalancesForIds, getChainForAddress } from 'bitbadgesjs-sdk';
 import { CreateAssetParams, IChainDriver, constructChallengeObjectFromString } from 'blockin';
 import { AndGroup, AssetConditionGroup, OrGroup, OwnershipRequirements } from 'blockin/dist/types/verify.types';
 import { Buffer } from 'buffer';

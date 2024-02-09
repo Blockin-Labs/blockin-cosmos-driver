@@ -1,6 +1,6 @@
 {
   "name": "blockin-cosmos-driver",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "",
   "type": "module",
   "main": "dist/CosmosDriver.js",
@@ -13,7 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "@keplr-wallet/cosmos": "^0.12.20",
-    "bitbadgesjs-utils": "^1.1.150",
+    "bitbadgesjs-sdk": "^0.0.7",
     "blockin": "^1.2.109",
     "buffer": "^6.0.3",
     "ethers": "^5.7.2",
